@@ -1,0 +1,32 @@
+# Source files
+src/
+__tests__/
+examples/
+
+# Development files
+*.config.js
+*.config.ts
+tsconfig*.json
+.eslintrc*
+.prettierrc*
+
+# Documentation
+docs/
+*.md
+!README.md
+!CHANGELOG.md
+
+# Development artifacts  
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
