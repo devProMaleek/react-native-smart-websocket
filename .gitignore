@@ -6,6 +6,10 @@ lib/
 dist/
 build/
 
+# Incremental build caches
+*.tsbuildinfo
+.rollup.cache/
+
 # Test coverage
 coverage/
 

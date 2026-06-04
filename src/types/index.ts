@@ -1,13 +1,11 @@
 import { type AppStateStatus } from 'react-native';
-import {
-  type ReactNode,
-} from 'react';
+import { type ReactNode } from 'react';
 import { type Options, ReadyState } from 'react-use-websocket';
 import { useCustomWebSocket } from '../hooks/use-custom-web-socket';
 
 export interface UseCustomWebSocketReturn<
-  TJsonMessage = any,
-  TMessageData = string
+  TJsonMessage = unknown,
+  TMessageData = string,
 > {
   sendMessage: (message: string) => void;
   sendJsonMessage: (object: TJsonMessage) => void;
@@ -43,14 +41,23 @@ export interface CustomWebSocketOptions extends Partial<Options> {
   enableHeartbeat?: boolean;
   pauseOnBackground?: boolean;
   reconnectOnForeground?: boolean;
+  /** Enable automatic reconnection on unexpected close. Defaults to `true`. */
+  enableReconnect?: boolean;
+  /** Retry the connection when an error occurs. Defaults to `true`. */
+  retryOnError?: boolean;
+  /** Share a single WebSocket across hooks pointing at the same URL. Defaults to `false`. */
+  share?: boolean;
 }
 
 // Generic WebSocket manager that handles multiple connections
-export interface WebSocketConnection extends UseCustomWebSocketReturn {
+export interface WebSocketConnection<
+  TJsonMessage = unknown,
+  TMessageData = string,
+> extends UseCustomWebSocketReturn<TJsonMessage, TMessageData> {
   id: string;
   url: string | null;
   updateQueryParams: (
-    params: Record<string, string | number | boolean>,
+    params: Record<string, string | number | boolean>
   ) => void;
   clearQueryParams: () => void;
   currentParams: Record<string, string | number | boolean>;

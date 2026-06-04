@@ -1,24 +1,35 @@
-import {
-  useContext,
-} from 'react';
 import { WebSocketConnection } from '../types';
-import { WebSocketManagerContext } from '../context/web-socket-provider';
+import { useConnectionContext } from '../context/web-socket-provider';
 
-// Hook to get a specific WebSocket connection
-export const useWebSocket = (connectionId: string): WebSocketConnection => {
-  const context = useContext(WebSocketManagerContext);
-  if (!context) {
-    throw new Error(
-      'useWebSocket must be used within a WebSocketManagerProvider',
-    );
-  }
+/**
+ * Get a specific WebSocket connection by id. Reads the connection's dedicated
+ * context, so it only re-renders when that connection updates.
+ *
+ * The message type defaults to `unknown` (narrow before use). Pass a type
+ * argument to opt into typed messaging:
+ *
+ * ```ts
+ * const { lastJsonMessage, sendJsonMessage } = useWebSocket<TimelineEvent>('timeline');
+ * ```
+ */
+export const useWebSocket = <TJsonMessage = unknown, TMessageData = string>(
+  connectionId: string
+): WebSocketConnection<TJsonMessage, TMessageData> => {
+  const connection = useConnectionContext(connectionId);
 
-  const connection = context.getConnection(connectionId);
   if (!connection) {
     throw new Error(
-      `WebSocket connection '${connectionId}' not found. Available connections: ${Array.from(context.connections.keys()).join(', ')}`,
+      `WebSocket connection '${connectionId}' not found. ` +
+        'Make sure the connection id matches a config passed to ' +
+        'WebSocketManagerProvider and that the hook is called within the ' +
+        'provider tree.'
     );
   }
 
-  return connection;
+  // The registry holds heterogeneous connections typed as `unknown` messages;
+  // cast to the caller-requested type at this type-erasure boundary.
+  return connection as unknown as WebSocketConnection<
+    TJsonMessage,
+    TMessageData
+  >;
 };
