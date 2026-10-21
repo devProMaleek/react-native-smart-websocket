@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Connection errors (for example, an unreachable server) now respect the 5-attempt reconnect limit and `enableReconnect: false`. Previously an error could trigger up to 20 reconnects, even with reconnection disabled. `retryOnError` now decides whether a connection error is retried, within the same limit.
+- `forceReconnect()` now replaces an open connection with a fresh one. Previously it closed the socket and left it closed.
 
 ## [1.0.0] - 2026-06-04
 

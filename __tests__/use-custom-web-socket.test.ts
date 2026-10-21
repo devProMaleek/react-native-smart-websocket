@@ -151,6 +151,23 @@ describe('useCustomWebSocket', () => {
       expect(FakeWebSocket.instances).toHaveLength(2);
     });
 
+    it('forceReconnect() replaces an open connection right away', async () => {
+      const { result } = await renderSocket();
+      const original = FakeWebSocket.latest();
+      act(() => original.open());
+
+      act(() => result.current.forceReconnect());
+      await flush();
+
+      expect(original.closeCalls[0]).toEqual({
+        code: 1000,
+        reason: 'Force reconnect',
+      });
+      expect(FakeWebSocket.instances).toHaveLength(2);
+      act(() => FakeWebSocket.latest().open());
+      expect(result.current.isConnected).toBe(true);
+    });
+
     it('reconnects to the new URL when the URL changes', async () => {
       const { rerender } = await renderSocket();
       const original = FakeWebSocket.latest();
@@ -328,6 +345,21 @@ describe('useCustomWebSocket', () => {
       await dropUntilGivingUp((socket) => dropAfter(socket, 1_000));
 
       expect(FakeWebSocket.instances).toHaveLength(10);
+    });
+
+    it('forceReconnect() gives the connection a fresh set of attempts', async () => {
+      const { result } = await renderSocket();
+      for (let i = 0; i < 4; i++) {
+        await dropAfter(FakeWebSocket.latest(), 1_000);
+      }
+      act(() => FakeWebSocket.latest().open());
+
+      act(() => result.current.forceReconnect());
+      await flush();
+      await dropUntilGivingUp((socket) => dropAfter(socket, 1_000));
+
+      // 5 sockets before forceReconnect(), its replacement, then 5 reconnects.
+      expect(FakeWebSocket.instances).toHaveLength(11);
     });
 
     it('never reconnects when enableReconnect is false', async () => {

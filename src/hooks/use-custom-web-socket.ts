@@ -115,6 +115,10 @@ export const useCustomWebSocket = <
     setIsPausedState(value);
   }, []);
 
+  // forceReconnect() withholds the URL for one render so react-use-websocket
+  // tears the socket down, then restores it to open a fresh connection.
+  const [isRestarting, setIsRestarting] = useState(false);
+
   const debug = useMemo(() => options.debug ?? false, [options.debug]); // Disable debug by default
   const enableHeartbeat = useMemo(
     () => options.enableHeartbeat ?? false,
@@ -176,9 +180,17 @@ export const useCustomWebSocket = <
     if (!url) return false;
     if (!isEnabled) return false; // Don't connect if disabled
     if (isManuallyDisconnected) return false;
+    if (isRestarting) return false;
     if (pauseOnBackground && isPaused) return false;
     return true;
-  }, [url, isEnabled, isManuallyDisconnected, pauseOnBackground, isPaused]);
+  }, [
+    url,
+    isEnabled,
+    isManuallyDisconnected,
+    isRestarting,
+    pauseOnBackground,
+    isPaused,
+  ]);
 
   // Create stable WebSocket configuration
   const webSocketConfig = useMemo(
@@ -395,6 +407,14 @@ export const useCustomWebSocket = <
     webSocketConfig
   );
 
+  // Second half of forceReconnect(): restore the URL once the old socket has
+  // been torn down, which opens a fresh connection.
+  useEffect(() => {
+    if (isRestarting) {
+      setIsRestarting(false);
+    }
+  }, [isRestarting]);
+
   // Clear the stability timer on unmount to avoid stale ref access.
   useEffect(() => {
     return () => {
@@ -472,11 +492,15 @@ export const useCustomWebSocket = <
     reconnectAttempts.current = 0;
     setIsManuallyDisconnected(false);
     setPaused(false);
-    const ws = getWebSocket();
+    // Close cleanly first so the old socket's close isn't counted as a drop.
+    // Shared sockets belong to react-use-websocket and can't be closed directly;
+    // the restart below releases this hook's subscription instead.
+    const ws = share ? null : getWebSocket();
     if (ws) {
       ws.close(1000, 'Force reconnect');
     }
-  }, [getWebSocket, log, setPaused, setIsManuallyDisconnected]);
+    setIsRestarting(true);
+  }, [getWebSocket, log, setPaused, setIsManuallyDisconnected, share]);
 
   const disconnect = useCallback(() => {
     log.info('🔌 Manually disconnecting...');
