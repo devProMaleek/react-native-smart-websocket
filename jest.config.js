@@ -15,6 +15,9 @@ module.exports = {
   },
   restoreMocks: true,
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/index.ts'],
+  coverageThreshold: {
+    global: { statements: 90, branches: 80, functions: 90, lines: 90 },
+  },
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
 };
