@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Connection errors (for example, an unreachable server) now respect the 5-attempt reconnect limit and `enableReconnect: false`. Previously an error could trigger up to 20 reconnects, even with reconnection disabled. `retryOnError` now decides whether a connection error is retried, within the same limit.
+
 ## [1.0.0] - 2026-06-04
 
 ### Added
@@ -19,4 +25,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime query-parameter management (`updateQueryParams`, `clearQueryParams`) and connection control (`enable`, `disable`, `forceReconnect`, `disconnect`).
 - TypeScript type declarations shipped with the package.
 
+[Unreleased]: https://github.com/devProMaleek/react-native-smart-websocket/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/devProMaleek/react-native-smart-websocket/releases/tag/v1.0.0

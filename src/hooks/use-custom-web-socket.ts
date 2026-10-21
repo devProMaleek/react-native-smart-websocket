@@ -81,6 +81,9 @@ export const useCustomWebSocket = <
   // enough to be considered stable (see onOpen). Prevents flapping connections
   // from resetting the counter and reconnecting forever.
   const stabilityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set when the socket reports an error. The close event that always follows
+  // reads it so shouldReconnect can apply the `retryOnError` option.
+  const closedAfterError = useRef(false);
 
   // Message history (reactive so consumers re-render as messages arrive)
   const [messageHistory, setMessageHistory] = useState<
@@ -181,7 +184,12 @@ export const useCustomWebSocket = <
   const webSocketConfig = useMemo(
     () => ({
       share,
-      retryOnError,
+      // All reconnects are decided in shouldReconnect, so the attempt limit and
+      // enableReconnect apply to every close. react-use-websocket's own
+      // retryOnError would reconnect from its error handler without asking
+      // shouldReconnect; since every WebSocket error is followed by a close
+      // event, our retryOnError option is applied there instead.
+      retryOnError: false,
       protocols: [],
 
       onOpen: (_event: Event) => {
@@ -241,6 +249,7 @@ export const useCustomWebSocket = <
       onError: (error: Event) => {
         const errorMsg = `WebSocket error: ${error.type}`;
         lastError.current = errorMsg;
+        closedAfterError.current = true;
 
         if (log.enabled) {
           log.error('🚨 WebSocket error:', {
@@ -277,9 +286,18 @@ export const useCustomWebSocket = <
       },
 
       shouldReconnect: (event: CloseEvent | WebSocketEventMap['close']) => {
+        const followedError = closedAfterError.current;
+        closedAfterError.current = false;
+
         // Don't reconnect if reconnection is disabled entirely
         if (!enableReconnect) {
           log.info('🚫 Skipping reconnect - reconnect disabled');
+          return false;
+        }
+
+        // Don't reconnect after a connection error unless retryOnError allows it
+        if (followedError && !retryOnError) {
+          log.info('🚫 Skipping reconnect - error and retryOnError is off');
           return false;
         }
 

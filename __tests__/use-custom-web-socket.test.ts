@@ -41,6 +41,12 @@ const dropAfter = async (socket: FakeWebSocket, uptimeMs: number) => {
   await advance(16_000);
 };
 
+/** Fails the connection attempt outright (error + close 1006). */
+const failAttempt = async (socket: FakeWebSocket) => {
+  act(() => socket.fail());
+  await advance(16_000);
+};
+
 /** Repeats `drop` on the newest socket until the hook stops reconnecting. */
 const dropUntilGivingUp = async (
   drop: (socket: FakeWebSocket) => Promise<void>
@@ -291,6 +297,15 @@ describe('useCustomWebSocket', () => {
       }
     );
 
+    it('gives up after 5 attempts when the server stays unreachable', async () => {
+      await renderSocket();
+
+      await dropUntilGivingUp(failAttempt);
+
+      // The initial connection plus 5 reconnect attempts.
+      expect(FakeWebSocket.instances).toHaveLength(6);
+    });
+
     it('gives up after 5 attempts when the connection keeps dropping quickly', async () => {
       await renderSocket();
 
@@ -313,6 +328,36 @@ describe('useCustomWebSocket', () => {
       await dropUntilGivingUp((socket) => dropAfter(socket, 1_000));
 
       expect(FakeWebSocket.instances).toHaveLength(10);
+    });
+
+    it('never reconnects when enableReconnect is false', async () => {
+      await renderSocket({ options: { enableReconnect: false } });
+      act(() => FakeWebSocket.latest().open());
+
+      act(() => FakeWebSocket.latest().fail());
+      await advance(60_000);
+
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('does not reconnect after a connection error when retryOnError is false', async () => {
+      await renderSocket({ options: { retryOnError: false } });
+      act(() => FakeWebSocket.latest().open());
+
+      act(() => FakeWebSocket.latest().fail());
+      await advance(60_000);
+
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('still reconnects after a server drop when retryOnError is false', async () => {
+      await renderSocket({ options: { retryOnError: false } });
+      act(() => FakeWebSocket.latest().open());
+
+      act(() => FakeWebSocket.latest().serverClose(1006));
+      await advance(1_000);
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
     });
   });
 
