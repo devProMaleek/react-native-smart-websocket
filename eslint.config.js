@@ -14,7 +14,7 @@ module.exports = tseslint.config(
   },
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', '__tests__/**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,
       prettier: prettierPlugin,
