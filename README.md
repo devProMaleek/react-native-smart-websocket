@@ -4,6 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/react-native-smart-websocket.svg)](https://www.npmjs.com/package/react-native-smart-websocket)
 [![license](https://img.shields.io/npm/l/react-native-smart-websocket.svg)](./LICENSE)
+[![CI](https://github.com/devProMaleek/react-native-smart-websocket/actions/workflows/ci.yml/badge.svg)](https://github.com/devProMaleek/react-native-smart-websocket/actions/workflows/ci.yml)
 
 Instead of wrapping your app in a separate provider for every socket, you declare **all** of your named connections in a single `WebSocketManagerProvider`. Each connection gets its own isolated context, and any component reads the one it needs with `useWebSocket('connection-id')`.
 
@@ -400,6 +401,20 @@ Each connection exposes:
 - **Control:** `enable`, `disable`, `forceReconnect`, `disconnect`, `getWebSocket`
 - **Params:** `updateQueryParams`, `clearQueryParams`, `currentParams`
 - **Identity:** `id`, `url`
+
+## Development
+
+Issues and pull requests are welcome. To work on the library locally:
+
+```sh
+npm install
+npm test             # run the test suite
+npm run lint         # ESLint + Prettier
+npm run type-check   # TypeScript, including the tests
+npm run build        # bundle to lib/ with type declarations
+```
+
+CI runs these checks on every pull request.
 
 ## License
 
