@@ -278,12 +278,16 @@ export const useCustomWebSocket = <
       },
 
       onMessage: (message: MessageEvent) => {
-        setMessageHistory((prev) => {
-          const next = [...prev, message as MessageEvent<TMessageData>];
-          return next.length > 50 ? next.slice(-50) : next;
-        });
-
         const isHeartbeat = isHeartbeatMessage(message.data);
+
+        // react-use-websocket keeps pong replies out of lastMessage; keep them
+        // out of messageHistory too so they don't crowd out real messages.
+        if (!isHeartbeat) {
+          setMessageHistory((prev) => {
+            const next = [...prev, message as MessageEvent<TMessageData>];
+            return next.length > 50 ? next.slice(-50) : next;
+          });
+        }
 
         if (log.enabled && !isHeartbeat) {
           log.info('📨 Message received:', {

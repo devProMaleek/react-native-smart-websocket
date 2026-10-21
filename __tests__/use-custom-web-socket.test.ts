@@ -482,7 +482,7 @@ describe('useCustomWebSocket', () => {
       expect(socket.sent).toEqual(['{"type":"ping"}']);
     });
 
-    it('keeps pong replies out of lastMessage', async () => {
+    it('keeps pong replies out of lastMessage and messageHistory', async () => {
       const { result } = await renderSocket({
         options: { enableHeartbeat: true },
       });
@@ -492,6 +492,19 @@ describe('useCustomWebSocket', () => {
       act(() => socket.receive('{"type":"pong"}'));
 
       expect(result.current.lastMessage).toBeNull();
+      expect(result.current.messageHistory).toEqual([]);
+    });
+
+    it('treats a pong as a normal message when the heartbeat is off', async () => {
+      const { result } = await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      act(() => socket.receive('{"type":"pong"}'));
+
+      expect(result.current.messageHistory.map((m) => m.data)).toEqual([
+        '{"type":"pong"}',
+      ]);
     });
 
     it('reconnects when the heartbeat times out', async () => {
