@@ -270,6 +270,9 @@ export class SocketConnection {
     this.setState({
       isEnabled: true,
       isManuallyDisconnected: false,
+      // An explicit enable lifts a leftover background pause, but only once
+      // the app is back in the foreground.
+      ...(this.state.appState !== 'background' && { isPaused: false }),
       attempts: 0,
     });
     this.connectIfNeeded();

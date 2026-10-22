@@ -570,6 +570,56 @@ describe('useCustomWebSocket', () => {
       expect(result.current.connectionStatus).toBe('Disabled');
     });
 
+    it('reconnects when re-enabled after being disabled in the background', async () => {
+      const { result } = await renderSocket();
+      act(() => FakeWebSocket.latest().open());
+      act(() => emitAppStateChange('background'));
+      act(() => result.current.disable());
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(FakeWebSocket.instances).toHaveLength(1);
+
+      act(() => result.current.enable());
+      await flush();
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
+      expect(result.current.connectionStatus).toBe('Connecting');
+    });
+
+    it('lets enable() resume a connection left paused by reconnectOnForeground: false', async () => {
+      const { result } = await renderSocket({
+        options: { reconnectOnForeground: false },
+      });
+      act(() => FakeWebSocket.latest().open());
+      act(() => emitAppStateChange('background'));
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(result.current.connectionStatus).toBe('Paused (Background)');
+
+      act(() => result.current.enable());
+      await flush();
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('stays paused when enable() is called while the app is in the background', async () => {
+      const { result } = await renderSocket();
+      act(() => FakeWebSocket.latest().open());
+      act(() => emitAppStateChange('background'));
+      act(() => result.current.disable());
+
+      act(() => result.current.enable());
+      await flush();
+
+      expect(FakeWebSocket.instances).toHaveLength(1);
+      expect(result.current.connectionStatus).toBe('Paused (Background)');
+
+      // It resumes as usual once the app is active again.
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
     it('removes its AppState listener on unmount', async () => {
       const { unmount } = await renderSocket();
       expect(getAppStateListenerCount()).toBe(1);
