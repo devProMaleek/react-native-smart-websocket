@@ -606,6 +606,26 @@ describe('useCustomWebSocket', () => {
       expect(result.current.messageHistory).toEqual([]);
     });
 
+    it('keeps messages that only resemble a pong reply', async () => {
+      const { result } = await renderSocket({
+        options: { enableHeartbeat: true },
+      });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      act(() => {
+        socket.receive('{"type":"pong","ts":1}');
+        socket.receive('pong');
+      });
+
+      // Only the exact pong reply is filtered, so history matches lastMessage.
+      expect(result.current.lastMessage?.data).toBe('pong');
+      expect(result.current.messageHistory.map((m) => m.data)).toEqual([
+        '{"type":"pong","ts":1}',
+        'pong',
+      ]);
+    });
+
     it('treats a pong as a normal message when the heartbeat is off', async () => {
       const { result } = await renderSocket();
       const socket = FakeWebSocket.latest();
