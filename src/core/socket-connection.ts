@@ -626,9 +626,7 @@ export class SocketConnection {
 
     if (silentFor >= heartbeat.timeout) {
       this.log.warn(`💔 Heartbeat timed out after ${silentFor}ms`);
-      this.stopHeartbeat();
-      // An unexpected close, so the usual reconnect logic applies.
-      socket.close(HEARTBEAT_TIMEOUT_CODE, 'Heartbeat timeout');
+      this.failHeartbeat('Heartbeat timeout');
       return;
     }
 
@@ -641,9 +639,18 @@ export class SocketConnection {
         this.lastPingAt = now;
       } catch (error) {
         this.log.error('💔 Heartbeat ping failed', error);
-        this.stopHeartbeat();
-        socket.close(HEARTBEAT_TIMEOUT_CODE, 'Heartbeat failed');
+        this.failHeartbeat('Heartbeat failed');
       }
+    }
+  }
+
+  // A dead server may never complete the close handshake, so don't wait for
+  // the close event: retire the socket and decide on a reconnect right away.
+  private failHeartbeat(reason: string): void {
+    this.retireSocket(HEARTBEAT_TIMEOUT_CODE, reason);
+    this.setState({ readyState: ReadyState.CLOSED });
+    if (this.shouldReconnect(HEARTBEAT_TIMEOUT_CODE, false)) {
+      this.scheduleReconnect();
     }
   }
 

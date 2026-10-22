@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changing a connection's URL or query params replaces its socket without using up a reconnect attempt.
 - Connection methods (`sendMessage`, `enable`, `updateQueryParams`, …) keep the same identity across renders, and messages sent from `onOpen` are delivered.
 - The reconnect delay now also backs off for connections that open and then drop quickly, instead of retrying every second.
-- A heartbeat timeout closes the socket with code 4000 before reconnecting.
+- A heartbeat timeout or failed ping closes the socket with code 4000 and reconnects right away, without waiting for an unreachable server to finish the close handshake.
 
 ## [1.0.1] - 2026-10-22
 

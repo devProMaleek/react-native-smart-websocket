@@ -669,6 +669,29 @@ describe('useCustomWebSocket', () => {
       expect(FakeWebSocket.instances).toHaveLength(2);
     });
 
+    it('replaces a dead socket without waiting for its close event', async () => {
+      const { result } = await renderSocket({
+        options: { enableHeartbeat: true },
+      });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+      // An unreachable server never completes the close handshake.
+      socket.close = (code, reason = '') => {
+        socket.closeCalls.push({ code, reason });
+      };
+
+      await advance(20_000);
+
+      expect(socket.closeCalls).toEqual([
+        { code: 4000, reason: 'Heartbeat timeout' },
+      ]);
+      expect(result.current.readyState).toBe(ReadyState.CLOSED);
+      expect(result.current.isConnected).toBe(false);
+
+      await advance(1_000);
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
     it('supports custom heartbeat messages and interval', async () => {
       const { result } = await renderSocket({
         options: {
