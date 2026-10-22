@@ -394,6 +394,11 @@ export class SocketConnection {
     this.socket = null;
     this.stopHeartbeat();
     this.clearStabilityTimer();
+    if (socket.readyState === ReadyState.CONNECTING) {
+      // React Native on Android ignores close() until the socket has opened,
+      // so close it again once it does rather than leave it connected.
+      socket.onopen = () => socket.close(code, reason);
+    }
     if (
       socket.readyState === ReadyState.CONNECTING ||
       socket.readyState === ReadyState.OPEN

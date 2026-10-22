@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `enable()` now reconnects a connection that was paused in the background, once the app is in the foreground. Previously it stayed paused until `forceReconnect()`, for example after being disabled while backgrounded or with `reconnectOnForeground: false`.
+- On Android, a socket closed while it was still connecting (for example by changing query params, calling `disable()` or unmounting) is now closed as soon as it opens. React Native on Android ignores `close()` until a socket has opened, so it could stay connected in the background.
 
 ## [1.0.1] - 2026-10-22
 
