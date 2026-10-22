@@ -400,7 +400,7 @@ With `pauseOnBackground` (the default), a connection that's open, connecting or 
 
 ### Heartbeat
 
-With `enableHeartbeat`, the connection sends a ping after 10s without any message, then closes and reconnects after 20s of silence (both configurable with `HeartbeatOptions`). Your server has to answer: any message counts as a sign of life, but a reply is only kept out of `lastMessage` and `messageHistory` when it matches `returnMessage` exactly. If your server doesn't answer pings and is otherwise quiet, leave the heartbeat off, or the connection will drop and reconnect every 20 seconds.
+With `enableHeartbeat`, the connection sends a ping after 10s without any message and closes the socket after 20s of silence (both configurable with `HeartbeatOptions`); it then reconnects following the [reconnect rules](#reconnection). Your server has to answer: any message counts as a sign of life, but a reply is only kept out of `lastMessage` and `messageHistory` when it matches `returnMessage` exactly. If your server doesn't answer pings and is otherwise quiet, leave the heartbeat off, or the connection will drop after every 20 seconds of silence.
 
 ### Changing connections at runtime
 
@@ -459,7 +459,7 @@ With `enableHeartbeat`, the connection sends a ping after 10s without any messag
 | `message`       | `string` | `'{"type":"ping"}'` | Ping sent to the server.                                          |
 | `returnMessage` | `string` | `'{"type":"pong"}'` | The server's reply; kept out of `lastMessage` and `messageHistory`. |
 | `interval`      | `number` | `10000`             | Ping after this long without receiving anything, in ms.           |
-| `timeout`       | `number` | `20000`             | Close and reconnect after this long without receiving anything, in ms. |
+| `timeout`       | `number` | `20000`             | Close the socket after this long without receiving anything, in ms. It then reconnects like any other drop. |
 
 ### Hooks
 

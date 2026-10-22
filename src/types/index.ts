@@ -52,7 +52,10 @@ export interface HeartbeatOptions {
   returnMessage?: string;
   /** Ping after this long without receiving anything, in ms. Defaults to `10000`. */
   interval?: number;
-  /** Close and reconnect after this long without receiving anything, in ms. Defaults to `20000`. */
+  /**
+   * Close the socket after this long without receiving anything, in ms. It
+   * then reconnects like any other drop. Defaults to `20000`.
+   */
   timeout?: number;
 }
 
