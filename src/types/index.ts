@@ -61,6 +61,13 @@ export interface CustomWebSocketOptions {
   enableReconnect?: boolean;
   /** Retry the connection when an error occurs. Defaults to `true`. */
   retryOnError?: boolean;
+  /** Reconnect attempts allowed before giving up. Defaults to `5`. */
+  reconnectAttempts?: number;
+  /**
+   * Delay before each reconnect, in ms: a fixed number, or a function of the
+   * attempt number (1 for the first retry). Defaults to 1s, 2s, 4s, 8s, then 16s.
+   */
+  reconnectInterval?: number | ((attempt: number) => number);
 }
 
 // Generic WebSocket manager that handles multiple connections

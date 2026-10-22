@@ -53,8 +53,12 @@ const MESSAGE_HISTORY_LIMIT = 50;
 // A connection must stay open this long before its reconnect attempts reset,
 // so one that opens and immediately drops can't retry forever.
 const STABLE_CONNECTION_MS = 5_000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const DEFAULT_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 16_000;
+
+// Progressive backoff: 1s, 2s, 4s, 8s, then 16s.
+const defaultReconnectDelay = (attempt: number): number =>
+  Math.min(1000 * 2 ** (attempt - 1), MAX_RECONNECT_DELAY_MS);
 // Close codes that mean the close was intentional, so we don't reconnect.
 const NO_RECONNECT_CODES = [1000, 1001];
 // Application-defined close code for a heartbeat timeout (4000–4999 range).
@@ -526,7 +530,7 @@ export class SocketConnection {
       this.log.info(`🚫 Skipping reconnect - close code ${code}`);
       return false;
     }
-    if (this.state.attempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (this.state.attempts >= this.maxReconnectAttempts()) {
       this.log.warn(
         `🛑 Giving up after ${this.state.attempts} reconnect attempts`
       );
@@ -535,13 +539,24 @@ export class SocketConnection {
     return true;
   }
 
+  private maxReconnectAttempts(): number {
+    return this.options.reconnectAttempts ?? DEFAULT_RECONNECT_ATTEMPTS;
+  }
+
+  private reconnectDelay(attempt: number): number {
+    const { reconnectInterval } = this.options;
+    if (typeof reconnectInterval === 'function') {
+      return reconnectInterval(attempt);
+    }
+    return reconnectInterval ?? defaultReconnectDelay(attempt);
+  }
+
   private scheduleReconnect(): void {
     const attempt = this.state.attempts + 1;
-    // Progressive backoff: 1s, 2s, 4s, 8s, 16s
-    const delay = Math.min(1000 * 2 ** (attempt - 1), MAX_RECONNECT_DELAY_MS);
+    const delay = this.reconnectDelay(attempt);
     this.setState({ attempts: attempt });
     this.log.info(
-      `⏳ Reconnecting in ${delay}ms (attempt ${attempt}/${MAX_RECONNECT_ATTEMPTS})`
+      `⏳ Reconnecting in ${delay}ms (attempt ${attempt}/${this.maxReconnectAttempts()})`
     );
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;

@@ -408,6 +408,41 @@ describe('useCustomWebSocket', () => {
       expect(FakeWebSocket.instances).toHaveLength(6);
     });
 
+    it('stops after the configured reconnectAttempts', async () => {
+      await renderSocket({ options: { reconnectAttempts: 2 } });
+
+      await dropUntilGivingUp(failAttempt);
+
+      expect(FakeWebSocket.instances).toHaveLength(3);
+    });
+
+    it('waits a fixed reconnectInterval between attempts', async () => {
+      await renderSocket({ options: { reconnectInterval: 3_000 } });
+
+      for (const attempts of [1, 2]) {
+        act(() => FakeWebSocket.latest().fail());
+        await advance(2_999);
+        expect(FakeWebSocket.instances).toHaveLength(attempts);
+        await advance(1);
+        expect(FakeWebSocket.instances).toHaveLength(attempts + 1);
+      }
+    });
+
+    it('passes the attempt number to a reconnectInterval function', async () => {
+      const reconnectInterval = jest.fn((attempt: number) => attempt * 100);
+      await renderSocket({ options: { reconnectInterval } });
+
+      for (let i = 0; i < 3; i++) {
+        act(() => FakeWebSocket.latest().fail());
+        await advance(1_000);
+      }
+
+      expect(reconnectInterval.mock.calls.map(([attempt]) => attempt)).toEqual([
+        1, 2, 3,
+      ]);
+      expect(FakeWebSocket.instances).toHaveLength(4);
+    });
+
     it('allows 5 fresh attempts once a connection stays up for 5 seconds', async () => {
       await renderSocket();
       for (let i = 0; i < 4; i++) {

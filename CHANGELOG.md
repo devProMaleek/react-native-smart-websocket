@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ReadyState` is exported from the package, and `connectionStatus` is typed as a `ConnectionStatus` union.
 - `protocols` option for requesting WebSocket subprotocols.
+- `reconnectAttempts` and `reconnectInterval` options to tune reconnection. The defaults are unchanged: 5 attempts with a 1s→16s backoff.
 
 ### Changed
 
