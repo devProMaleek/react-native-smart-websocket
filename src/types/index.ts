@@ -1,7 +1,17 @@
-import { type AppStateStatus } from 'react-native';
-import { type ReactNode } from 'react';
-import { type Options, ReadyState } from 'react-use-websocket';
-import { useCustomWebSocket } from '../hooks/use-custom-web-socket';
+import type { AppStateStatus } from 'react-native';
+import type { ReactNode } from 'react';
+import type { ReadyState } from '../core/ready-state';
+
+export type QueryParams = Record<string, string | number | boolean>;
+
+export type ConnectionStatus =
+  | 'Disabled'
+  | 'Paused (Background)'
+  | 'Uninstantiated'
+  | 'Connecting'
+  | 'Connected'
+  | 'Closing'
+  | 'Closed';
 
 export interface UseCustomWebSocketReturn<
   TJsonMessage = unknown,
@@ -13,7 +23,7 @@ export interface UseCustomWebSocketReturn<
   lastJsonMessage: TJsonMessage | null;
   messageHistory: MessageEvent<TMessageData>[];
   readyState: ReadyState;
-  connectionStatus: string;
+  connectionStatus: ConnectionStatus;
   isConnected: boolean;
   getWebSocket: () => WebSocket | null;
   debugInfo: {
@@ -32,21 +42,23 @@ export interface UseCustomWebSocketReturn<
   isEnabled: boolean;
 }
 
-export interface CustomWebSocketOptions extends Partial<Options> {
-  onOpen?: () => void;
-  onClose?: (event?: CloseEvent) => void;
-  onError?: (error: Event) => void;
-  onMessage?: (message: MessageEvent) => void;
+export interface CustomWebSocketOptions {
+  onOpen?: (event: Event) => void;
+  onClose?: (event: CloseEvent) => void;
+  onError?: (event: Event) => void;
+  onMessage?: (event: MessageEvent) => void;
+  /** Log connection activity to the console. Defaults to `false`. */
   debug?: boolean;
+  /** Send keep-alive pings and reconnect when the server stops answering. Defaults to `false`. */
   enableHeartbeat?: boolean;
+  /** Close the socket while the app is in the background. Defaults to `true`. */
   pauseOnBackground?: boolean;
+  /** Reopen a socket paused in the background once the app is active again. Defaults to `true`. */
   reconnectOnForeground?: boolean;
   /** Enable automatic reconnection on unexpected close. Defaults to `true`. */
   enableReconnect?: boolean;
   /** Retry the connection when an error occurs. Defaults to `true`. */
   retryOnError?: boolean;
-  /** Share a single WebSocket across hooks pointing at the same URL. Defaults to `false`. */
-  share?: boolean;
 }
 
 // Generic WebSocket manager that handles multiple connections
@@ -56,11 +68,9 @@ export interface WebSocketConnection<
 > extends UseCustomWebSocketReturn<TJsonMessage, TMessageData> {
   id: string;
   url: string | null;
-  updateQueryParams: (
-    params: Record<string, string | number | boolean>
-  ) => void;
+  updateQueryParams: (params: QueryParams) => void;
   clearQueryParams: () => void;
-  currentParams: Record<string, string | number | boolean>;
+  currentParams: QueryParams;
 }
 
 export interface WebSocketManagerContextType {
@@ -71,9 +81,9 @@ export interface WebSocketManagerContextType {
 export interface WebSocketConfig {
   id: string;
   baseUrl: string | null;
-  initialQueryParams?: Record<string, string | number | boolean>;
+  initialQueryParams?: QueryParams;
   initialEnabled?: boolean; // Control whether to connect immediately
-  options?: Parameters<typeof useCustomWebSocket>[1];
+  options?: CustomWebSocketOptions;
 }
 
 export interface WebSocketManagerProviderProps {

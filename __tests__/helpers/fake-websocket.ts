@@ -1,10 +1,8 @@
-type CloseListener = (event: CloseEvent) => void;
-
 /**
- * A controllable stand-in for the global WebSocket. react-use-websocket binds
- * `onopen` / `onmessage` / `onerror` / `onclose` (plus a `close` listener for
- * heartbeats), so that's the surface implemented here. Tests play the server's
- * part through open(), receive(), fail() and serverClose().
+ * A controllable stand-in for the global WebSocket. The library binds
+ * `onopen` / `onmessage` / `onerror` / `onclose`, so that's the surface
+ * implemented here. Tests play the server's part through open(), receive(),
+ * fail() and serverClose().
  */
 export class FakeWebSocket {
   static readonly CONNECTING = 0;
@@ -43,8 +41,6 @@ export class FakeWebSocket {
   onerror: ((event: Event) => void) | null = null;
   onclose: ((event: CloseEvent) => void) | null = null;
 
-  private readonly closeListeners = new Set<CloseListener>();
-
   constructor(url: string, protocols?: string | string[]) {
     this.url = url;
     this.protocols = protocols;
@@ -77,18 +73,6 @@ export class FakeWebSocket {
     });
   }
 
-  addEventListener(type: string, listener: CloseListener): void {
-    if (type === 'close') {
-      this.closeListeners.add(listener);
-    }
-  }
-
-  removeEventListener(type: string, listener: CloseListener): void {
-    if (type === 'close') {
-      this.closeListeners.delete(listener);
-    }
-  }
-
   // --- Test controls: simulate the server / network ---
 
   /** The server accepts the connection. */
@@ -119,8 +103,6 @@ export class FakeWebSocket {
   }
 
   private dispatchClose(code: number, reason: string, wasClean: boolean): void {
-    const event = new CloseEvent('close', { code, reason, wasClean });
-    this.onclose?.(event);
-    this.closeListeners.forEach((listener) => listener(event));
+    this.onclose?.(new CloseEvent('close', { code, reason, wasClean }));
   }
 }

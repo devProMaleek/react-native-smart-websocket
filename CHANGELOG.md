@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- `react-use-websocket` has been replaced by a built-in connection layer, so the package has no runtime dependencies. It required `react-dom` without declaring it, which React Native apps without `react-dom` couldn't resolve.
+- `CustomWebSocketOptions` no longer extends react-use-websocket's `Options`. Those extra options were accepted by the types but ignored.
+- The `share` option has been removed. Use `WebSocketManagerProvider` to share one connection across components.
+- React 18+ and React Native 0.69+ are now required.
+- `lastJsonMessage` is `null` (instead of `{}`) when a message isn't valid JSON.
+
+### Added
+
+- `ReadyState` is exported from the package, and `connectionStatus` is typed as a `ConnectionStatus` union.
+
+### Changed
+
+- Adding or removing connections in `WebSocketManagerProvider` no longer reconnects the other connections.
+- Changing a connection's URL or query params replaces its socket without using up a reconnect attempt.
+- Connection methods (`sendMessage`, `enable`, `updateQueryParams`, …) keep the same identity across renders, and messages sent from `onOpen` are delivered.
+- The reconnect delay now also backs off for connections that open and then drop quickly, instead of retrying every second.
+- A heartbeat timeout closes the socket with code 4000 before reconnecting.
+
 ### Fixed
 
 - Connection errors (for example, an unreachable server) now respect the 5-attempt reconnect limit and `enableReconnect: false`. Previously an error could trigger up to 20 reconnects, even with reconnection disabled. `retryOnError` now decides whether a connection error is retried, within the same limit.
