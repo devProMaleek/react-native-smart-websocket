@@ -29,10 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connection methods (`sendMessage`, `enable`, `updateQueryParams`, …) keep the same identity across renders, and messages sent from `onOpen` are delivered.
 - The reconnect delay now also backs off for connections that open and then drop quickly, instead of retrying every second.
 - A heartbeat timeout or failed ping closes the socket with code 4000 and reconnects right away, without waiting for an unreachable server to finish the close handshake.
+- A server close with code 1001 ("going away"), which servers send when they shut down or restart, now reconnects like any other dropped connection. Only a normal closure (1000) stops reconnection.
 
 ### Fixed
 
 - `enable()` now reconnects a connection that was paused in the background, once the app is in the foreground. Previously it stayed paused until `forceReconnect()`, for example after being disabled while backgrounded or with `reconnectOnForeground: false`.
+- On Android, a socket closed while it was still connecting (for example by changing query params, calling `disable()` or unmounting) is now closed as soon as it opens. React Native on Android ignores `close()` until a socket has opened, so it could stay connected in the background.
+- Query params no longer depend on the global `URL`. Without `react-native-url-polyfill`, React Native's built-in `URL` added a trailing slash to the path (`/chat/?room=general`), repeated params already in `baseUrl` and couldn't replace them, so servers that match paths exactly could reject the connection. The polyfill is no longer needed.
+- With `pauseOnBackground`, a connection that is still connecting or waiting to reconnect when the app goes to the background is now paused too. Previously it could open in the background and stay open there.
 
 ## [1.0.1] - 2026-10-22
 

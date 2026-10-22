@@ -93,4 +93,32 @@ describe('SocketConnection', () => {
     expect(connection.getSnapshot().lastMessage).toBeNull();
     connection.stop();
   });
+
+  it('closes a socket replaced while connecting once it opens', async () => {
+    const connection = create();
+    connection.start();
+    const replaced = FakeWebSocket.latest();
+    // React Native on Android ignores close() until the socket has opened.
+    const close = replaced.close.bind(replaced);
+    replaced.close = (code, reason = '') => {
+      if (replaced.readyState !== FakeWebSocket.CONNECTING) {
+        close(code, reason);
+        return;
+      }
+      replaced.closeCalls.push({ code, reason });
+      replaced.readyState = FakeWebSocket.CLOSING;
+    };
+
+    connection.updateQueryParams({ token: 'abc' });
+    replaced.open();
+
+    expect(replaced.closeCalls).toEqual([
+      { code: 1000, reason: 'URL changed' },
+      { code: 1000, reason: 'URL changed' },
+    ]);
+    await Promise.resolve();
+    expect(replaced.readyState).toBe(FakeWebSocket.CLOSED);
+    expect(connection.getSnapshot().readyState).toBe(ReadyState.CONNECTING);
+    connection.stop();
+  });
 });

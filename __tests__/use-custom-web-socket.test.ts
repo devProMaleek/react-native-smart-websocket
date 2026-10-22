@@ -376,19 +376,28 @@ describe('useCustomWebSocket', () => {
       }
     });
 
-    it.each([1000, 1001])(
-      'does not reconnect after an intentional close (%i)',
-      async (code) => {
-        await renderSocket();
-        const socket = FakeWebSocket.latest();
-        act(() => socket.open());
+    it('does not reconnect after the server closes normally (1000)', async () => {
+      await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
 
-        act(() => socket.serverClose(code));
-        await advance(60_000);
+      act(() => socket.serverClose(1000));
+      await advance(60_000);
 
-        expect(FakeWebSocket.instances).toHaveLength(1);
-      }
-    );
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('reconnects when the server goes away (1001)', async () => {
+      await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      // Servers send 1001 when they shut down or restart.
+      act(() => socket.serverClose(1001));
+      await advance(1_000);
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
 
     it('gives up after 5 attempts when the server stays unreachable', async () => {
       await renderSocket();
@@ -568,6 +577,38 @@ describe('useCustomWebSocket', () => {
 
       expect(FakeWebSocket.instances).toHaveLength(0);
       expect(result.current.connectionStatus).toBe('Disabled');
+    });
+
+    it('pauses a socket that is still connecting and reopens it on return', async () => {
+      const { result } = await renderSocket();
+      const socket = FakeWebSocket.latest();
+
+      act(() => emitAppStateChange('background'));
+      await flush();
+
+      expect(socket.closeCalls).toEqual([
+        { code: 1000, reason: 'App backgrounded' },
+      ]);
+      expect(result.current.connectionStatus).toBe('Paused (Background)');
+
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('holds a pending reconnect in the background and reconnects on return', async () => {
+      const { result } = await renderSocket();
+      act(() => FakeWebSocket.latest().fail());
+
+      act(() => emitAppStateChange('background'));
+      await advance(60_000);
+
+      expect(FakeWebSocket.instances).toHaveLength(1);
+      expect(result.current.connectionStatus).toBe('Paused (Background)');
+
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(FakeWebSocket.instances).toHaveLength(2);
     });
 
     it('reconnects when re-enabled after being disabled in the background', async () => {

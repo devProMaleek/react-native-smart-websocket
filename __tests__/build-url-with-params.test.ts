@@ -49,33 +49,50 @@ describe('buildUrlWithParams', () => {
     );
   });
 
-  describe('when the URL API cannot be used', () => {
-    it('assembles the query string manually for URLs the URL API rejects', () => {
-      expect(
-        buildUrlWithParams('/relative/socket', { room: 'general', q: 'a b' })
-      ).toBe('/relative/socket?room=general&q=a%20b');
-    });
+  it('returns the base URL when every param value is empty', () => {
+    const params = { token: undefined } as unknown as Record<string, string>;
 
-    it('falls back when the runtime has no working URL implementation', () => {
-      jest.spyOn(globalThis, 'URL').mockImplementation(() => {
-        throw new TypeError('URL is not supported');
-      });
+    expect(buildUrlWithParams('/socket', params)).toBe('/socket');
+  });
 
-      expect(
-        buildUrlWithParams('wss://api.example.com/chat', { room: 'general' })
-      ).toBe('wss://api.example.com/chat?room=general');
-    });
+  it('works with relative URLs', () => {
+    expect(
+      buildUrlWithParams('/relative/socket', { room: 'general', q: 'a b' })
+    ).toBe('/relative/socket?room=general&q=a%20b');
+  });
 
-    it('appends with & when the base URL already has a query string', () => {
-      expect(buildUrlWithParams('/socket?token=abc', { room: 'general' })).toBe(
-        '/socket?token=abc&room=general'
-      );
-    });
+  it('appends with & when the base URL already has a query string', () => {
+    expect(buildUrlWithParams('/socket?token=abc', { room: 'general' })).toBe(
+      '/socket?token=abc&room=general'
+    );
+  });
 
-    it('returns the base URL when every param value is empty', () => {
-      const params = { token: undefined } as unknown as Record<string, string>;
+  it('replaces every repeat of a key that is passed again', () => {
+    expect(
+      buildUrlWithParams('/socket?room=a&token=abc&room=b', { room: 'c' })
+    ).toBe('/socket?token=abc&room=c');
+  });
 
-      expect(buildUrlWithParams('/socket', params)).toBe('/socket');
-    });
+  it('keeps existing params whose keys cannot be decoded', () => {
+    expect(buildUrlWithParams('/socket?%E0%A4%A=1', { room: 'a' })).toBe(
+      '/socket?%E0%A4%A=1&room=a'
+    );
+  });
+
+  it('keeps a fragment after the query string', () => {
+    expect(buildUrlWithParams('/socket#live', { room: 'general' })).toBe(
+      '/socket?room=general#live'
+    );
+  });
+
+  it("doesn't use the global URL, which React Native implements differently", () => {
+    // React Native's built-in URL adds a trailing slash to the path and
+    // repeats the existing query, without throwing.
+    const url = jest.spyOn(globalThis, 'URL');
+
+    expect(
+      buildUrlWithParams('wss://api.example.com/chat?v=2', { room: 'general' })
+    ).toBe('wss://api.example.com/chat?v=2&room=general');
+    expect(url).not.toHaveBeenCalled();
   });
 });

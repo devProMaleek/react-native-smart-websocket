@@ -1,39 +1,44 @@
 import type { QueryParams } from '../types';
 
-// Helper function to build URL with query parameters.
-// Falls back to manual query-string assembly when the runtime's `URL` /
-// `URLSearchParams` implementation is missing or incomplete (common on older
-// React Native versions without `react-native-url-polyfill`).
+const decodeKey = (pair: string): string => {
+  const key = pair.split('=', 1)[0].replace(/\+/g, ' ');
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    // A malformed escape sequence: compare the key as written.
+    return key;
+  }
+};
+
+// Adds query params to a URL, replacing any it already has with the same key.
+// Built by hand rather than with the global `URL`: React Native's built-in one
+// adds a trailing slash to the path and repeats the existing query, without
+// throwing, so it can't be detected and worked around.
 export const buildUrlWithParams = (
   baseUrl: string,
   params: QueryParams
 ): string => {
-  if (!baseUrl || Object.keys(params).length === 0) {
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== null && value !== undefined
+  );
+  if (!baseUrl || entries.length === 0) {
     return baseUrl;
   }
 
-  try {
-    const url = new URL(baseUrl);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        url.searchParams.set(key, String(value));
-      }
-    });
-    return url.toString();
-  } catch {
-    const queryString = Object.entries(params)
-      .filter(([, value]) => value !== null && value !== undefined)
-      .map(
-        ([key, value]) =>
-          `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
-      )
-      .join('&');
+  const hashStart = baseUrl.indexOf('#');
+  const hash = hashStart === -1 ? '' : baseUrl.slice(hashStart);
+  const beforeHash = hashStart === -1 ? baseUrl : baseUrl.slice(0, hashStart);
+  const queryStart = beforeHash.indexOf('?');
+  const path = queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart);
+  const query = queryStart === -1 ? '' : beforeHash.slice(queryStart + 1);
 
-    if (!queryString) {
-      return baseUrl;
-    }
-
-    const separator = baseUrl.includes('?') ? '&' : '?';
-    return `${baseUrl}${separator}${queryString}`;
-  }
+  const keys = new Set(entries.map(([key]) => key));
+  const kept = query
+    .split('&')
+    .filter((pair) => pair !== '' && !keys.has(decodeKey(pair)));
+  const added = entries.map(
+    ([key, value]) =>
+      `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`
+  );
+  return `${path}?${[...kept, ...added].join('&')}${hash}`;
 };

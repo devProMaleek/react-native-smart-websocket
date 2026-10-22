@@ -59,8 +59,10 @@ const MAX_RECONNECT_DELAY_MS = 16_000;
 // Progressive backoff: 1s, 2s, 4s, 8s, then 16s.
 const defaultReconnectDelay = (attempt: number): number =>
   Math.min(1000 * 2 ** (attempt - 1), MAX_RECONNECT_DELAY_MS);
-// Close codes that mean the close was intentional, so we don't reconnect.
-const NO_RECONNECT_CODES = [1000, 1001];
+// A normal closure means the server meant to end the connection, so we don't
+// reconnect. Anything else counts as a drop, including 1001 ("going away"),
+// which servers send when they shut down or restart.
+const NORMAL_CLOSURE_CODE = 1000;
 // Application-defined close code for a heartbeat timeout (4000–4999 range).
 const HEARTBEAT_TIMEOUT_CODE = 4000;
 
@@ -82,7 +84,7 @@ const STATUS_BY_READY_STATE: Record<ReadyState, ConnectionStatus> = {
 // Human-readable descriptions for WebSocket close codes (used in debug logs).
 const CLOSE_CODE_INFO: Record<number, string> = {
   1000: '✅ Normal closure (intentional)',
-  1001: '🔄 Going away (page unload/refresh)',
+  1001: '🔄 Going away (server shutting down or restarting)',
   1002: '❌ Protocol error',
   1003: '❌ Unsupported data type',
   1006: '⚠️ Abnormal closure (connection lost)',
@@ -394,6 +396,11 @@ export class SocketConnection {
     this.socket = null;
     this.stopHeartbeat();
     this.clearStabilityTimer();
+    if (socket.readyState === ReadyState.CONNECTING) {
+      // React Native on Android ignores close() until the socket has opened,
+      // so close it again once it does rather than leave it connected.
+      socket.onopen = () => socket.close(code, reason);
+    }
     if (
       socket.readyState === ReadyState.CONNECTING ||
       socket.readyState === ReadyState.OPEN
@@ -529,8 +536,8 @@ export class SocketConnection {
       this.log.info('🚫 Skipping reconnect - connection disabled or paused');
       return false;
     }
-    if (NO_RECONNECT_CODES.includes(code)) {
-      this.log.info(`🚫 Skipping reconnect - close code ${code}`);
+    if (code === NORMAL_CLOSURE_CODE) {
+      this.log.info('🚫 Skipping reconnect - normal closure (1000)');
       return false;
     }
     if (this.state.attempts >= this.maxReconnectAttempts()) {
@@ -680,10 +687,11 @@ export class SocketConnection {
     }
   };
 
-  // Close an open socket while backgrounded so it can be reopened on return.
+  // Close the socket while backgrounded so it can be reopened on return,
+  // including one still connecting or waiting to reconnect.
   private pauseForBackground(): void {
     this.wasConnectedBeforeBackground =
-      this.state.readyState === ReadyState.OPEN;
+      this.socket !== null || this.reconnectTimer !== null;
     if (!this.wasConnectedBeforeBackground) {
       return;
     }
