@@ -3,6 +3,11 @@ import { AppState, type AppStateStatus } from 'react-native';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 import { CustomWebSocketOptions, UseCustomWebSocketReturn } from '../types';
 
+// Heartbeat payloads. react-use-websocket keeps a reply out of lastMessage only
+// when it exactly matches the configured returnMessage, so our filter does too.
+const HEARTBEAT_PING = JSON.stringify({ type: 'ping' });
+const HEARTBEAT_PONG = JSON.stringify({ type: 'pong' });
+
 // Human-readable descriptions for WebSocket close codes (used in debug logs).
 const CLOSE_CODE_INFO: Record<number, string> = {
   1000: '✅ Normal closure (intentional)',
@@ -163,15 +168,9 @@ export const useCustomWebSocket = <
     };
   }, [debug]);
 
-  // Helper function to detect heartbeat messages
+  // Helper function to detect heartbeat replies
   const isHeartbeatMessage = useCallback(
-    (data: unknown): boolean => {
-      if (!enableHeartbeat) return false;
-      if (data === '{"type":"pong"}' || data === 'pong') return true;
-      if (typeof data === 'string' && data.includes('"type":"pong"'))
-        return true;
-      return false;
-    },
+    (data: unknown): boolean => enableHeartbeat && data === HEARTBEAT_PONG,
     [enableHeartbeat]
   );
 
@@ -379,8 +378,8 @@ export const useCustomWebSocket = <
       // Optional heartbeat - only if enabled
       ...(enableHeartbeat && {
         heartbeat: {
-          message: JSON.stringify({ type: 'ping' }),
-          returnMessage: JSON.stringify({ type: 'pong' }),
+          message: HEARTBEAT_PING,
+          returnMessage: HEARTBEAT_PONG,
           timeout: 20000, // 20 seconds timeout
           interval: 10000, // 10 seconds interval
         },
