@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-22
+
 ### Breaking changes
 
 - `react-use-websocket` has been replaced by a built-in connection layer, so the package has no runtime dependencies. It required `react-dom` without declaring it, which React Native apps without `react-dom` couldn't resolve.
@@ -60,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime query-parameter management (`updateQueryParams`, `clearQueryParams`) and connection control (`enable`, `disable`, `forceReconnect`, `disconnect`).
 - TypeScript type declarations shipped with the package.
 
-[Unreleased]: https://github.com/devProMaleek/react-native-smart-websocket/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/devProMaleek/react-native-smart-websocket/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/devProMaleek/react-native-smart-websocket/compare/v1.0.1...v2.0.0
 [1.0.1]: https://github.com/devProMaleek/react-native-smart-websocket/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/devProMaleek/react-native-smart-websocket/releases/tag/v1.0.0
