@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- `react-use-websocket` has been replaced by a built-in connection layer, so the package has no runtime dependencies. It required `react-dom` without declaring it, which React Native apps without `react-dom` couldn't resolve.
+- `CustomWebSocketOptions` no longer extends react-use-websocket's `Options`. Those extra options were accepted by the types but ignored.
+- The `share` option has been removed. Use `WebSocketManagerProvider` to share one connection across components.
+- React 18+ and React Native 0.69+ are now required.
+- `lastJsonMessage` is `null` (instead of `{}`) when a message isn't valid JSON.
+
+### Added
+
+- `ReadyState` is exported from the package, and `connectionStatus` is typed as a `ConnectionStatus` union.
+- `protocols` option for requesting WebSocket subprotocols.
+- `reconnectAttempts` and `reconnectInterval` options to tune reconnection. The defaults are unchanged: 5 attempts with a 1s→16s backoff.
+- `enableHeartbeat` accepts an object to customize the ping and pong messages, the ping interval and the timeout.
+
+### Changed
+
+- Adding or removing connections in `WebSocketManagerProvider` no longer reconnects the other connections.
+- Changing a connection's URL or query params replaces its socket without using up a reconnect attempt.
+- Connection methods (`sendMessage`, `enable`, `updateQueryParams`, …) keep the same identity across renders, and messages sent from `onOpen` are delivered.
+- The reconnect delay now also backs off for connections that open and then drop quickly, instead of retrying every second.
+- A heartbeat timeout or failed ping closes the socket with code 4000 and reconnects right away, without waiting for an unreachable server to finish the close handshake.
+
+### Fixed
+
+- `enable()` now reconnects a connection that was paused in the background, once the app is in the foreground. Previously it stayed paused until `forceReconnect()`, for example after being disabled while backgrounded or with `reconnectOnForeground: false`.
+
 ## [1.0.1] - 2026-10-22
 
 ### Fixed

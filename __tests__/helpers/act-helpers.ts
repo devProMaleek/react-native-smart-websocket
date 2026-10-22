@@ -1,8 +1,8 @@
 import { act } from '@testing-library/react';
 
 /**
- * Lets pending promise work settle (react-use-websocket resolves the URL
- * asynchronously before opening a socket) and flushes the React updates.
+ * Lets pending promise work settle (such as a FakeWebSocket's asynchronous
+ * close event) and flushes the React updates it triggers.
  */
 export const flush = (): Promise<void> => act(async () => {});
 

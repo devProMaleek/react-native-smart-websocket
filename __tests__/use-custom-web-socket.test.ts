@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
-import { ReadyState } from 'react-use-websocket';
+import { createElement, StrictMode, type ReactNode } from 'react';
+import { ReadyState } from '../src';
 import { useCustomWebSocket } from '../src/hooks/use-custom-web-socket';
 import type { CustomWebSocketOptions } from '../src/types';
 import { advance, flush } from './helpers/act-helpers';
@@ -80,6 +81,12 @@ describe('useCustomWebSocket', () => {
       expect(result.current.readyState).toBe(ReadyState.OPEN);
       expect(result.current.isConnected).toBe(true);
       expect(result.current.connectionStatus).toBe('Connected');
+    });
+
+    it('requests the configured subprotocols', async () => {
+      await renderSocket({ options: { protocols: ['chat.v2', 'chat.v1'] } });
+
+      expect(FakeWebSocket.latest().protocols).toEqual(['chat.v2', 'chat.v1']);
     });
 
     it('does not connect without a URL', async () => {
@@ -193,6 +200,52 @@ describe('useCustomWebSocket', () => {
 
       expect(result.current.connectionStatus).toBe('Closed');
     });
+
+    it('reports an error without retrying when the socket cannot be created', async () => {
+      Object.defineProperty(globalThis, 'WebSocket', {
+        configurable: true,
+        writable: true,
+        value: class {
+          constructor() {
+            throw new SyntaxError('Invalid URL');
+          }
+        },
+      });
+
+      const { result } = await renderSocket();
+      await advance(60_000);
+
+      expect(result.current.readyState).toBe(ReadyState.CLOSED);
+      expect(result.current.debugInfo.lastError).toBe(
+        'WebSocket error: SyntaxError: Invalid URL'
+      );
+      expect(result.current.debugInfo.attempts).toBe(0);
+    });
+
+    it('closes the socket when the component unmounts', async () => {
+      const { unmount } = await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      unmount();
+
+      expect(socket.closeCalls).toEqual([
+        { code: 1000, reason: 'Connection stopped' },
+      ]);
+    });
+
+    it('keeps a single live socket under StrictMode', async () => {
+      renderHook(() => useCustomWebSocket(SOCKET_URL), {
+        wrapper: ({ children }: { children: ReactNode }) =>
+          createElement(StrictMode, null, children),
+      });
+      await flush();
+
+      const live = FakeWebSocket.instances.filter(
+        (socket) => socket.closeCalls.length === 0
+      );
+      expect(live).toHaveLength(1);
+    });
   });
 
   describe('messaging', () => {
@@ -257,6 +310,29 @@ describe('useCustomWebSocket', () => {
       act(() => FakeWebSocket.latest().open());
 
       expect(FakeWebSocket.latest().sent).toEqual([]);
+    });
+
+    it('sets lastJsonMessage to null for messages that are not JSON', async () => {
+      const { result } = await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      act(() => socket.receive('plain text'));
+
+      expect(result.current.lastMessage?.data).toBe('plain text');
+      expect(result.current.lastJsonMessage).toBeNull();
+    });
+
+    it('can send from onOpen', async () => {
+      let send: (message: string) => void = () => {};
+      const { result } = await renderSocket({
+        options: { onOpen: () => send('subscribe') },
+      });
+      send = result.current.sendMessage;
+
+      act(() => FakeWebSocket.latest().open());
+
+      expect(FakeWebSocket.latest().sent).toEqual(['subscribe']);
     });
 
     it('warns about dropped messages when debug is on', async () => {
@@ -330,6 +406,41 @@ describe('useCustomWebSocket', () => {
 
       // The initial connection plus 5 reconnect attempts.
       expect(FakeWebSocket.instances).toHaveLength(6);
+    });
+
+    it('stops after the configured reconnectAttempts', async () => {
+      await renderSocket({ options: { reconnectAttempts: 2 } });
+
+      await dropUntilGivingUp(failAttempt);
+
+      expect(FakeWebSocket.instances).toHaveLength(3);
+    });
+
+    it('waits a fixed reconnectInterval between attempts', async () => {
+      await renderSocket({ options: { reconnectInterval: 3_000 } });
+
+      for (const attempts of [1, 2]) {
+        act(() => FakeWebSocket.latest().fail());
+        await advance(2_999);
+        expect(FakeWebSocket.instances).toHaveLength(attempts);
+        await advance(1);
+        expect(FakeWebSocket.instances).toHaveLength(attempts + 1);
+      }
+    });
+
+    it('passes the attempt number to a reconnectInterval function', async () => {
+      const reconnectInterval = jest.fn((attempt: number) => attempt * 100);
+      await renderSocket({ options: { reconnectInterval } });
+
+      for (let i = 0; i < 3; i++) {
+        act(() => FakeWebSocket.latest().fail());
+        await advance(1_000);
+      }
+
+      expect(reconnectInterval.mock.calls.map(([attempt]) => attempt)).toEqual([
+        1, 2, 3,
+      ]);
+      expect(FakeWebSocket.instances).toHaveLength(4);
     });
 
     it('allows 5 fresh attempts once a connection stays up for 5 seconds', async () => {
@@ -459,6 +570,56 @@ describe('useCustomWebSocket', () => {
       expect(result.current.connectionStatus).toBe('Disabled');
     });
 
+    it('reconnects when re-enabled after being disabled in the background', async () => {
+      const { result } = await renderSocket();
+      act(() => FakeWebSocket.latest().open());
+      act(() => emitAppStateChange('background'));
+      act(() => result.current.disable());
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(FakeWebSocket.instances).toHaveLength(1);
+
+      act(() => result.current.enable());
+      await flush();
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
+      expect(result.current.connectionStatus).toBe('Connecting');
+    });
+
+    it('lets enable() resume a connection left paused by reconnectOnForeground: false', async () => {
+      const { result } = await renderSocket({
+        options: { reconnectOnForeground: false },
+      });
+      act(() => FakeWebSocket.latest().open());
+      act(() => emitAppStateChange('background'));
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(result.current.connectionStatus).toBe('Paused (Background)');
+
+      act(() => result.current.enable());
+      await flush();
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('stays paused when enable() is called while the app is in the background', async () => {
+      const { result } = await renderSocket();
+      act(() => FakeWebSocket.latest().open());
+      act(() => emitAppStateChange('background'));
+      act(() => result.current.disable());
+
+      act(() => result.current.enable());
+      await flush();
+
+      expect(FakeWebSocket.instances).toHaveLength(1);
+      expect(result.current.connectionStatus).toBe('Paused (Background)');
+
+      // It resumes as usual once the app is active again.
+      act(() => emitAppStateChange('active'));
+      await flush();
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
     it('removes its AppState listener on unmount', async () => {
       const { unmount } = await renderSocket();
       expect(getAppStateListenerCount()).toBe(1);
@@ -528,14 +689,92 @@ describe('useCustomWebSocket', () => {
     });
 
     it('reconnects when the heartbeat times out', async () => {
-      jest.spyOn(console, 'warn').mockImplementation(() => {});
       await renderSocket({ options: { enableHeartbeat: true } });
-      act(() => FakeWebSocket.latest().open());
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
 
       // No pong for 20s: the heartbeat closes the socket, then we reconnect.
       await advance(21_000);
 
+      expect(socket.closeCalls).toEqual([
+        { code: 4000, reason: 'Heartbeat timeout' },
+      ]);
       expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('reconnects when a heartbeat ping cannot be sent', async () => {
+      await renderSocket({ options: { enableHeartbeat: true } });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+      socket.send = () => {
+        throw new Error('send failed');
+      };
+
+      // The ping due at 10s fails, so the socket is closed and replaced.
+      await advance(11_000);
+
+      expect(socket.closeCalls).toEqual([
+        { code: 4000, reason: 'Heartbeat failed' },
+      ]);
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('replaces a dead socket without waiting for its close event', async () => {
+      const { result } = await renderSocket({
+        options: { enableHeartbeat: true },
+      });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+      // An unreachable server never completes the close handshake.
+      socket.close = (code, reason = '') => {
+        socket.closeCalls.push({ code, reason });
+      };
+
+      await advance(20_000);
+
+      expect(socket.closeCalls).toEqual([
+        { code: 4000, reason: 'Heartbeat timeout' },
+      ]);
+      expect(result.current.readyState).toBe(ReadyState.CLOSED);
+      expect(result.current.isConnected).toBe(false);
+
+      await advance(1_000);
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
+
+    it('supports custom heartbeat messages and interval', async () => {
+      const { result } = await renderSocket({
+        options: {
+          enableHeartbeat: {
+            message: 'ping',
+            returnMessage: 'pong',
+            interval: 5_000,
+          },
+        },
+      });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      await advance(5_000);
+      expect(socket.sent).toEqual(['ping']);
+
+      act(() => socket.receive('pong'));
+      expect(result.current.lastMessage).toBeNull();
+      expect(result.current.messageHistory).toEqual([]);
+    });
+
+    it('applies a custom heartbeat timeout', async () => {
+      await renderSocket({ options: { enableHeartbeat: { timeout: 8_000 } } });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      await advance(7_999);
+      expect(socket.closeCalls).toEqual([]);
+      await advance(1);
+
+      expect(socket.closeCalls).toEqual([
+        { code: 4000, reason: 'Heartbeat timeout' },
+      ]);
     });
 
     it('does not send pings when the heartbeat is disabled', async () => {
@@ -595,13 +834,6 @@ describe('useCustomWebSocket', () => {
       act(() => FakeWebSocket.latest().fail());
 
       expect(result.current.debugInfo.lastError).toBe('WebSocket error: error');
-    });
-
-    it('shares one socket between hooks when share is true', async () => {
-      await renderSocket({ options: { share: true } });
-      await renderSocket({ options: { share: true } });
-
-      expect(FakeWebSocket.instances).toHaveLength(1);
     });
   });
 });

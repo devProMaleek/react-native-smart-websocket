@@ -133,6 +133,45 @@ describe('WebSocketManagerProvider', () => {
     expect(result.current.currentParams).toEqual({});
   });
 
+  it('replaces the socket on a query param change without using up reconnect attempts', async () => {
+    const { result } = renderHook(() => useWebSocket('chat'), {
+      wrapper: providerWith([chat]),
+    });
+    await flush();
+    const original = FakeWebSocket.latest();
+    act(() => original.open());
+
+    for (let page = 1; page <= 3; page++) {
+      act(() => result.current.updateQueryParams({ page }));
+      await flush();
+    }
+
+    expect(original.closeCalls).toEqual([
+      { code: 1000, reason: 'URL changed' },
+    ]);
+    expect(FakeWebSocket.instances).toHaveLength(4);
+    expect(result.current.debugInfo.attempts).toBe(0);
+  });
+
+  it('keeps a single live socket per connection under StrictMode', async () => {
+    render(
+      <React.StrictMode>
+        <WebSocketManagerProvider connections={[chat, notifications]}>
+          <span />
+        </WebSocketManagerProvider>
+      </React.StrictMode>
+    );
+    await flush();
+
+    const live = FakeWebSocket.instances.filter(
+      (socket) => socket.closeCalls.length === 0
+    );
+    expect(live.map((socket) => socket.url).sort()).toEqual([
+      'wss://test.local/chat?room=general',
+      'wss://test.local/notifications',
+    ]);
+  });
+
   describe('dynamic connection lists', () => {
     const Ids = () => {
       const { connections } = useWebSocketManager();
@@ -166,7 +205,7 @@ describe('WebSocketManagerProvider', () => {
       expect(FakeWebSocket.instances).toHaveLength(2);
     });
 
-    it('removes a connection and closes its socket', async () => {
+    it('removes a connection without reconnecting the others', async () => {
       const { rerender } = render(
         <WebSocketManagerProvider connections={[chat, notifications]}>
           <Ids />
@@ -174,7 +213,9 @@ describe('WebSocketManagerProvider', () => {
       );
       await flush();
       const chatSocket = socketFor(chat.baseUrl!);
+      const notificationsSocket = socketFor(notifications.baseUrl!);
 
+      // Remove the *first* connection, which used to remount the rest.
       rerender(
         <WebSocketManagerProvider connections={[notifications]}>
           <Ids />
@@ -183,7 +224,11 @@ describe('WebSocketManagerProvider', () => {
       await flush();
 
       expect(screen.getByTestId('ids').textContent).toBe('notifications');
-      expect(chatSocket.closeCalls.length).toBeGreaterThan(0);
+      expect(chatSocket.closeCalls).toEqual([
+        { code: 1000, reason: 'Connection stopped' },
+      ]);
+      expect(notificationsSocket.closeCalls).toHaveLength(0);
+      expect(FakeWebSocket.forUrl(notifications.baseUrl!)).toHaveLength(1);
     });
   });
 
