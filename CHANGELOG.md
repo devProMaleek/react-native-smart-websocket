@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `ReadyState` is exported from the package, and `connectionStatus` is typed as a `ConnectionStatus` union.
+- `protocols` option for requesting WebSocket subprotocols.
 
 ### Changed
 

@@ -341,7 +341,7 @@ export class SocketConnection {
 
     let socket: WebSocket;
     try {
-      socket = new WebSocket(url);
+      socket = new WebSocket(url, this.options.protocols);
     } catch (error) {
       // An invalid URL throws synchronously; retrying wouldn't help.
       this.log.error('🚨 Could not create WebSocket:', error);

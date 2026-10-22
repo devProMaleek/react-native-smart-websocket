@@ -47,6 +47,8 @@ export interface CustomWebSocketOptions {
   onClose?: (event: CloseEvent) => void;
   onError?: (event: Event) => void;
   onMessage?: (event: MessageEvent) => void;
+  /** WebSocket subprotocols to request, passed to `new WebSocket(url, protocols)`. */
+  protocols?: string | string[];
   /** Log connection activity to the console. Defaults to `false`. */
   debug?: boolean;
   /** Send keep-alive pings and reconnect when the server stops answering. Defaults to `false`. */

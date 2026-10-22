@@ -83,6 +83,12 @@ describe('useCustomWebSocket', () => {
       expect(result.current.connectionStatus).toBe('Connected');
     });
 
+    it('requests the configured subprotocols', async () => {
+      await renderSocket({ options: { protocols: ['chat.v2', 'chat.v1'] } });
+
+      expect(FakeWebSocket.latest().protocols).toEqual(['chat.v2', 'chat.v1']);
+    });
+
     it('does not connect without a URL', async () => {
       const { result } = await renderSocket({ url: null });
 
