@@ -6,19 +6,19 @@
 [![license](https://img.shields.io/npm/l/react-native-smart-websocket.svg)](./LICENSE)
 [![CI](https://github.com/devProMaleek/react-native-smart-websocket/actions/workflows/ci.yml/badge.svg)](https://github.com/devProMaleek/react-native-smart-websocket/actions/workflows/ci.yml)
 
-Instead of wrapping your app in a separate provider for every socket, you declare **all** of your named connections in a single `WebSocketManagerProvider`. Each connection gets its own isolated context, and any component reads the one it needs with `useWebSocket('connection-id')`.
+Instead of wrapping your app in a separate provider for every socket, you declare **all** of your named connections in a single `WebSocketManagerProvider`. Each connection is isolated, and any component reads the one it needs with `useWebSocket('connection-id')`.
 
 ## Features
 
-- **One manager, many connections** — declare every named socket in a single provider.
-- **Per-connection context** — each connection gets its own React context, so a message on one connection only re-renders components reading _that_ connection.
+- **One manager, many connections** — declare every named socket in a single provider, and add or remove connections at runtime without disturbing the others.
+- **Isolated re-renders** — each component subscribes to one connection, so a message on one connection only re-renders components reading _that_ connection.
 - **Mobile-aware** — pause sockets when the app goes to the background and reconnect on foreground (`pauseOnBackground`, `reconnectOnForeground`).
-- **Resilient reconnection** — progressive backoff (1s → 2s → 4s → 8s → 16s), capped at 5 attempts; the counter only resets after a connection stays stable for 5s, so flapping connections don't retry forever.
-- **Optional heartbeat** — ping/pong keep-alive (`enableHeartbeat`).
+- **Resilient reconnection** — progressive backoff (1s → 2s → 4s → 8s → 16s), capped at 5 attempts, both configurable. The counter only resets after a connection stays stable for 5s, so flapping connections don't retry forever.
+- **Optional heartbeat** — ping/pong keep-alive with customizable messages and timing (`enableHeartbeat`).
 - **Dynamic query params** — update or clear a connection's query string at runtime, triggering a reconnect.
 - **Connection control** — `enable()` / `disable()`, `forceReconnect()`, `disconnect()`.
 - **JSON & string messaging**, last-message tracking, and message history.
-- **Fully typed** — written in TypeScript, ships with type declarations.
+- **No runtime dependencies** and **fully typed** — written in TypeScript, ships with type declarations.
 
 ## Installation
 
@@ -28,7 +28,7 @@ npm install react-native-smart-websocket
 yarn add react-native-smart-websocket
 ```
 
-`react` and `react-native` are peer dependencies (React `>=16.8.0`, React Native `>=0.60.0`). `react-use-websocket` is bundled as a dependency — you do not need to install it separately.
+`react` (18+) and `react-native` (0.69+) are peer dependencies. The library has no other dependencies.
 
 > **Query params on older React Native:** dynamic query parameters are built with the global `URL` API. Recent React Native ships a usable `URL`, and this library falls back to manual query-string assembly if `URL.searchParams` is incomplete. For the most reliable behavior on older RN versions, install [`react-native-url-polyfill`](https://github.com/charpeni/react-native-url-polyfill) and import it once at your app entry:
 >
@@ -368,21 +368,30 @@ That's the whole flow: declare your sockets once, read them anywhere by id, cont
 
 ### `CustomWebSocketOptions`
 
-Extends [`react-use-websocket`](https://github.com/robtaussig/react-use-websocket) `Options`, plus:
+| Option                  | Type                                      | Description                                            |
+| ----------------------- | ----------------------------------------- | ------------------------------------------------------ |
+| `pauseOnBackground`     | `boolean`                                 | Pause the socket when the app backgrounds. Default `true`. |
+| `reconnectOnForeground` | `boolean`                                 | Reconnect when the app returns to the foreground. Default `true`. |
+| `enableReconnect`       | `boolean`                                 | Automatically reconnect on unexpected close. Default `true`. |
+| `retryOnError`          | `boolean`                                 | Retry the connection when an error occurs. Default `true`. |
+| `reconnectAttempts`     | `number`                                  | Reconnect attempts allowed before giving up. Default `5`. |
+| `reconnectInterval`     | `number \| (attempt: number) => number`   | Delay before each reconnect, in ms: fixed, or a function of the attempt number (1 for the first retry). Default 1s, 2s, 4s, 8s, then 16s. |
+| `enableHeartbeat`       | `boolean \| HeartbeatOptions`             | Ping/pong keep-alive; `true` uses the defaults below. Default `false`. |
+| `protocols`             | `string \| string[]`                      | WebSocket subprotocols to request.                     |
+| `debug`                 | `boolean`                                 | Verbose console logging. Default `false`.              |
+| `onOpen`                | `(event: Event) => void`                  | Called when the socket opens.                          |
+| `onClose`               | `(event: CloseEvent) => void`             | Called when the socket closes.                         |
+| `onError`               | `(event: Event) => void`                  | Called on a socket error.                              |
+| `onMessage`             | `(event: MessageEvent) => void`           | Called on every message.                               |
 
-| Option                  | Type                              | Description                                            |
-| ----------------------- | --------------------------------- | ------------------------------------------------------ |
-| `pauseOnBackground`     | `boolean`                         | Pause the socket when the app backgrounds. Default `true`. |
-| `reconnectOnForeground` | `boolean`                         | Reconnect when the app returns to the foreground. Default `true`. |
-| `enableReconnect`       | `boolean`                         | Automatically reconnect on unexpected close. Default `true`. |
-| `retryOnError`          | `boolean`                         | Retry the connection when an error occurs. Default `true`. |
-| `enableHeartbeat`       | `boolean`                         | Enable ping/pong keep-alive (10s interval / 20s timeout). Default `false`. |
-| `share`                 | `boolean`                         | Share one socket across hooks with the same URL. Default `false`. |
-| `debug`                 | `boolean`                         | Verbose console logging. Default `false`.              |
-| `onOpen`                | `() => void`                      | Called on open.                                        |
-| `onClose`               | `(event?: CloseEvent) => void`    | Called on close.                                       |
-| `onError`               | `(error: Event) => void`          | Called on error.                                       |
-| `onMessage`             | `(message: MessageEvent) => void` | Called on every message.                               |
+### `HeartbeatOptions`
+
+| Field           | Type     | Default             | Description                                                       |
+| --------------- | -------- | ------------------- | ----------------------------------------------------------------- |
+| `message`       | `string` | `'{"type":"ping"}'` | Ping sent to the server.                                          |
+| `returnMessage` | `string` | `'{"type":"pong"}'` | The server's reply; kept out of `lastMessage` and `messageHistory`. |
+| `interval`      | `number` | `10000`             | Ping after this long without receiving anything, in ms.           |
+| `timeout`       | `number` | `20000`             | Close and reconnect after this long without receiving anything, in ms. |
 
 ### Hooks
 
@@ -401,6 +410,27 @@ Each connection exposes:
 - **Control:** `enable`, `disable`, `forceReconnect`, `disconnect`, `getWebSocket`
 - **Params:** `updateQueryParams`, `clearQueryParams`, `currentParams`
 - **Identity:** `id`, `url`
+
+The methods keep the same identity across renders, so they're safe to use in effect dependencies.
+
+`readyState` uses the exported `ReadyState` enum (`UNINSTANTIATED`, `CONNECTING`, `OPEN`, `CLOSING`, `CLOSED`), and `connectionStatus` is one of `'Disabled'`, `'Paused (Background)'`, `'Uninstantiated'`, `'Connecting'`, `'Connected'`, `'Closing'` or `'Closed'`.
+
+```tsx
+import { ReadyState, useWebSocket } from 'react-native-smart-websocket';
+
+const { readyState } = useWebSocket('chat');
+const isOpen = readyState === ReadyState.OPEN;
+```
+
+## Migrating from 1.x
+
+2.0 replaces `react-use-websocket` with a built-in connection layer. The hooks, the provider and the connection fields are unchanged, so for most apps upgrading is just a version bump.
+
+- **Requirements:** React 18+ and React Native 0.69+. `react-dom` is no longer needed.
+- **`share` was removed.** Declare the connection once in `WebSocketManagerProvider` and read it anywhere with `useWebSocket(id)`.
+- **react-use-websocket options are no longer accepted.** They were ignored in 1.x. `protocols`, `reconnectAttempts` and `reconnectInterval` are now supported directly.
+- **Import `ReadyState` from this package** instead of `react-use-websocket`.
+- **`lastJsonMessage` is `null`** for messages that aren't valid JSON (it was `{}`).
 
 ## Development
 
