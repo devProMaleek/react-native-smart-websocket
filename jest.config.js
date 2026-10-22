@@ -1,23 +1,23 @@
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  testMatch: [
-    '**/__tests__/**/*.(test|spec).(js|jsx|ts|tsx)',
-    '**/?(*.)(test|spec).(js|jsx|ts|tsx)'
-  ],
-  collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/index.ts',
-    '!src/setupTests.ts'
-  ],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  testEnvironment: 'jsdom',
+  testMatch: ['<rootDir>/__tests__/**/*.test.{ts,tsx}'],
+  setupFilesAfterEnv: ['<rootDir>/__tests__/setup.ts'],
   transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest'
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      { tsconfig: '<rootDir>/__tests__/tsconfig.json' },
+    ],
   },
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
-  }
+    // The library only uses AppState from react-native, so tests run against
+    // a small mock instead of the full React Native runtime.
+    '^react-native$': '<rootDir>/__tests__/mocks/react-native.ts',
+  },
+  restoreMocks: true,
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/index.ts'],
+  coverageThreshold: {
+    global: { statements: 90, branches: 80, functions: 90, lines: 90 },
+  },
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'html'],
 };
