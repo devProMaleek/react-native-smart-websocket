@@ -376,19 +376,28 @@ describe('useCustomWebSocket', () => {
       }
     });
 
-    it.each([1000, 1001])(
-      'does not reconnect after an intentional close (%i)',
-      async (code) => {
-        await renderSocket();
-        const socket = FakeWebSocket.latest();
-        act(() => socket.open());
+    it('does not reconnect after the server closes normally (1000)', async () => {
+      await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
 
-        act(() => socket.serverClose(code));
-        await advance(60_000);
+      act(() => socket.serverClose(1000));
+      await advance(60_000);
 
-        expect(FakeWebSocket.instances).toHaveLength(1);
-      }
-    );
+      expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('reconnects when the server goes away (1001)', async () => {
+      await renderSocket();
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      // Servers send 1001 when they shut down or restart.
+      act(() => socket.serverClose(1001));
+      await advance(1_000);
+
+      expect(FakeWebSocket.instances).toHaveLength(2);
+    });
 
     it('gives up after 5 attempts when the server stays unreachable', async () => {
       await renderSocket();

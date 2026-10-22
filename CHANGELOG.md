@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connection methods (`sendMessage`, `enable`, `updateQueryParams`, …) keep the same identity across renders, and messages sent from `onOpen` are delivered.
 - The reconnect delay now also backs off for connections that open and then drop quickly, instead of retrying every second.
 - A heartbeat timeout or failed ping closes the socket with code 4000 and reconnects right away, without waiting for an unreachable server to finish the close handshake.
+- A server close with code 1001 ("going away"), which servers send when they shut down or restart, now reconnects like any other dropped connection. Only a normal closure (1000) stops reconnection.
 
 ### Fixed
 
