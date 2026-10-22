@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `enable()` now reconnects a connection that was paused in the background, once the app is in the foreground. Previously it stayed paused until `forceReconnect()`, for example after being disabled while backgrounded or with `reconnectOnForeground: false`.
 - On Android, a socket closed while it was still connecting (for example by changing query params, calling `disable()` or unmounting) is now closed as soon as it opens. React Native on Android ignores `close()` until a socket has opened, so it could stay connected in the background.
 - Query params no longer depend on the global `URL`. Without `react-native-url-polyfill`, React Native's built-in `URL` added a trailing slash to the path (`/chat/?room=general`), repeated params already in `baseUrl` and couldn't replace them, so servers that match paths exactly could reject the connection. The polyfill is no longer needed.
+- With `pauseOnBackground`, a connection that is still connecting or waiting to reconnect when the app goes to the background is now paused too. Previously it could open in the background and stay open there.
 
 ## [1.0.1] - 2026-10-22
 

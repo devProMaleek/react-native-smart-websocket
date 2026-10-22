@@ -396,7 +396,7 @@ The button also shows while it waits between automatic attempts; pressing it the
 
 ### Background and foreground
 
-With `pauseOnBackground` (the default), a connection that's open when the app goes to the background is closed, and its status becomes `'Paused (Background)'`. With `reconnectOnForeground` (also the default), it reopens when the app is active again. Connections that weren't open are left alone. If you turn `reconnectOnForeground` off, a paused connection stays paused until you call `enable()` or `forceReconnect()`.
+With `pauseOnBackground` (the default), a connection that's open, connecting or waiting to reconnect when the app goes to the background is closed, and its status becomes `'Paused (Background)'`. With `reconnectOnForeground` (also the default), it reopens when the app is active again. Disabled and disconnected connections, and ones that have given up reconnecting, are left alone. If you turn `reconnectOnForeground` off, a paused connection stays paused until you call `enable()` or `forceReconnect()`.
 
 ### Heartbeat
 

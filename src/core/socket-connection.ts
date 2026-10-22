@@ -687,10 +687,11 @@ export class SocketConnection {
     }
   };
 
-  // Close an open socket while backgrounded so it can be reopened on return.
+  // Close the socket while backgrounded so it can be reopened on return,
+  // including one still connecting or waiting to reconnect.
   private pauseForBackground(): void {
     this.wasConnectedBeforeBackground =
-      this.state.readyState === ReadyState.OPEN;
+      this.socket !== null || this.reconnectTimer !== null;
     if (!this.wasConnectedBeforeBackground) {
       return;
     }
