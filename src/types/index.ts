@@ -42,6 +42,20 @@ export interface UseCustomWebSocketReturn<
   isEnabled: boolean;
 }
 
+export interface HeartbeatOptions {
+  /** Ping sent to the server. Defaults to `'{"type":"ping"}'`. */
+  message?: string;
+  /**
+   * The server's reply. It keeps the connection alive and is left out of
+   * `lastMessage` and `messageHistory`. Defaults to `'{"type":"pong"}'`.
+   */
+  returnMessage?: string;
+  /** Ping after this long without receiving anything, in ms. Defaults to `10000`. */
+  interval?: number;
+  /** Close and reconnect after this long without receiving anything, in ms. Defaults to `20000`. */
+  timeout?: number;
+}
+
 export interface CustomWebSocketOptions {
   onOpen?: (event: Event) => void;
   onClose?: (event: CloseEvent) => void;
@@ -51,8 +65,11 @@ export interface CustomWebSocketOptions {
   protocols?: string | string[];
   /** Log connection activity to the console. Defaults to `false`. */
   debug?: boolean;
-  /** Send keep-alive pings and reconnect when the server stops answering. Defaults to `false`. */
-  enableHeartbeat?: boolean;
+  /**
+   * Send keep-alive pings and reconnect when the server stops answering.
+   * Pass `true` for the defaults, or an object to customize. Defaults to `false`.
+   */
+  enableHeartbeat?: boolean | HeartbeatOptions;
   /** Close the socket while the app is in the background. Defaults to `true`. */
   pauseOnBackground?: boolean;
   /** Reopen a socket paused in the background once the app is active again. Defaults to `true`. */

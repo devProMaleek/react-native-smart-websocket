@@ -649,6 +649,41 @@ describe('useCustomWebSocket', () => {
       expect(FakeWebSocket.instances).toHaveLength(2);
     });
 
+    it('supports custom heartbeat messages and interval', async () => {
+      const { result } = await renderSocket({
+        options: {
+          enableHeartbeat: {
+            message: 'ping',
+            returnMessage: 'pong',
+            interval: 5_000,
+          },
+        },
+      });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      await advance(5_000);
+      expect(socket.sent).toEqual(['ping']);
+
+      act(() => socket.receive('pong'));
+      expect(result.current.lastMessage).toBeNull();
+      expect(result.current.messageHistory).toEqual([]);
+    });
+
+    it('applies a custom heartbeat timeout', async () => {
+      await renderSocket({ options: { enableHeartbeat: { timeout: 8_000 } } });
+      const socket = FakeWebSocket.latest();
+      act(() => socket.open());
+
+      await advance(7_999);
+      expect(socket.closeCalls).toEqual([]);
+      await advance(1);
+
+      expect(socket.closeCalls).toEqual([
+        { code: 4000, reason: 'Heartbeat timeout' },
+      ]);
+    });
+
     it('does not send pings when the heartbeat is disabled', async () => {
       await renderSocket();
       const socket = FakeWebSocket.latest();

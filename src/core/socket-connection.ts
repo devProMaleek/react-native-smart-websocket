@@ -64,7 +64,7 @@ const NO_RECONNECT_CODES = [1000, 1001];
 // Application-defined close code for a heartbeat timeout (4000–4999 range).
 const HEARTBEAT_TIMEOUT_CODE = 4000;
 
-const HEARTBEAT: HeartbeatSettings = {
+const DEFAULT_HEARTBEAT: HeartbeatSettings = {
   message: JSON.stringify({ type: 'ping' }),
   returnMessage: JSON.stringify({ type: 'pong' }),
   interval: 10_000,
@@ -581,7 +581,20 @@ export class SocketConnection {
   // --- Heartbeat ---
 
   private heartbeatSettings(): HeartbeatSettings | null {
-    return this.options.enableHeartbeat ? HEARTBEAT : null;
+    const { enableHeartbeat } = this.options;
+    if (!enableHeartbeat) {
+      return null;
+    }
+    if (enableHeartbeat === true) {
+      return DEFAULT_HEARTBEAT;
+    }
+    return {
+      message: enableHeartbeat.message ?? DEFAULT_HEARTBEAT.message,
+      returnMessage:
+        enableHeartbeat.returnMessage ?? DEFAULT_HEARTBEAT.returnMessage,
+      interval: enableHeartbeat.interval ?? DEFAULT_HEARTBEAT.interval,
+      timeout: enableHeartbeat.timeout ?? DEFAULT_HEARTBEAT.timeout,
+    };
   }
 
   private isHeartbeatReply(data: unknown): boolean {
